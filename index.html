@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ReflexRun 3D - The Real-Life Workout Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Orbitron:wght@500;700;900&family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./src/style.css" />
+    <!-- MediaPipe Tasks Vision loaded via npm import in PoseDetector.js -->
+  </head>
+  <body>
+    <!-- Main 3D Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- Screen VFX Overlays -->
+    <div id="vignette-damage" class="vfx-overlay"></div>
+    <div id="vignette-speed" class="vfx-overlay"></div>
+    <div id="hit-flash" class="vfx-overlay"></div>
+
+    <!-- Live In-Game HUD -->
+    <div id="hud" class="hud-layer hidden">
+      <!-- Top Status Bar -->
+      <div class="hud-top-bar">
+        <!-- Health & Lives -->
+        <div class="hud-panel health-panel">
+          <div class="panel-label">STAMINA</div>
+          <div class="health-hearts" id="health-hearts">
+            <span class="heart active">❤️</span>
+            <span class="heart active">❤️</span>
+            <span class="heart active">❤️</span>
+          </div>
+        </div>
+
+        <!-- Center Score & Distance -->
+        <div class="hud-panel distance-panel">
+          <div class="panel-label">DISTANCE</div>
+          <div class="panel-value" id="hud-distance">0 <span class="unit">M</span></div>
+          <div class="speed-indicator" id="hud-speed">24 KM/H</div>
+        </div>
+
+        <!-- Combo & Multiplier -->
+        <div class="hud-panel combo-panel">
+          <div class="panel-label">COMBO</div>
+          <div class="panel-value combo-text" id="hud-combo">x1</div>
+          <div class="combo-meter-bar">
+            <div class="combo-meter-fill" id="combo-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Live Calories & Heart Rate -->
+        <div class="hud-panel calories-panel">
+          <div class="panel-label">ENERGY BURNED</div>
+          <div class="panel-value calories-text" id="hud-calories">0 <span class="unit">KCAL</span></div>
+          <div class="bpm-indicator" id="hud-bpm">⚡ 135 BPM</div>
+        </div>
+      </div>
+
+      <!-- Action Prompt Banner (JUMP, SLIDE, PUNCH, STEP) -->
+      <div class="action-prompt-container" id="action-prompt">
+        <div class="prompt-glow"></div>
+        <div class="prompt-icon" id="prompt-icon">🏃</div>
+        <div class="prompt-text" id="prompt-text">RUNNING</div>
+        <div class="prompt-subtext" id="prompt-subtext">GET READY</div>
+      </div>
+
+      <!-- Floating Feedback (PERFECT, GREAT, CRUSHED) -->
+      <div class="floating-feedback" id="floating-feedback"></div>
+
+      <!-- Bottom Workout Reps HUD -->
+      <div class="hud-bottom-bar">
+        <div class="rep-chip" id="rep-jumps">
+          <span class="chip-icon">🦘</span>
+          <div class="chip-info">
+            <span class="chip-title">JUMPS</span>
+            <span class="chip-count" id="count-jumps">0</span>
+          </div>
+        </div>
+        <div class="rep-chip" id="rep-squats">
+          <span class="chip-icon">🔻</span>
+          <div class="chip-info">
+            <span class="chip-title">SQUATS / DUCKS</span>
+            <span class="chip-count" id="count-squats">0</span>
+          </div>
+        </div>
+        <div class="rep-chip" id="rep-punches">
+          <span class="chip-icon">🥊</span>
+          <div class="chip-info">
+            <span class="chip-title">PUNCHES</span>
+            <span class="chip-count" id="count-punches">0</span>
+          </div>
+        </div>
+        <div class="rep-chip" id="rep-steps">
+          <span class="chip-icon">↔️</span>
+          <div class="chip-info">
+            <span class="chip-title">AGILITY STEPS</span>
+            <span class="chip-count" id="count-steps">0</span>
+          </div>
+        </div>
+
+        <!-- Control Bar (Sound toggle, PIP toggle, Pause, Controls Guide) -->
+        <div class="hud-controls-group">
+          <button id="btn-audio" class="hud-btn" title="Toggle Sound">🔊</button>
+          <button id="btn-pip-hud" class="hud-btn" title="Toggle Body Tracker PIP">📷</button>
+          <button id="btn-pause" class="hud-btn" title="Pause Game">⏸️</button>
+        </div>
+      </div>
+
+      <!-- Keyboard Fallback Hint -->
+      <div class="keyboard-hints">
+        <span>Controls: [W/Space] JUMP</span> • <span>[S] SQUAT/SLIDE</span> • <span>[A/D] STEP</span> • <span>[J/K] PUNCH</span>
+      </div>
+    </div>
+
+    <!-- Picture-in-Picture Webcam Tracker -->
+    <div id="webcam-pip" class="webcam-pip">
+      <div class="pip-header">
+        <span class="pip-indicator" id="pip-status-dot"></span>
+        <span class="pip-title">BODY TRACKER</span>
+        <div class="pip-header-btns">
+          <button id="btn-toggle-pip" class="pip-toggle-btn" title="Minimize / Expand">_</button>
+          <button id="btn-close-pip" class="pip-toggle-btn" title="Dismiss Camera Window">✕</button>
+        </div>
+      </div>
+      <div class="pip-body">
+        <video id="webcam-video" playsinline muted autoplay></video>
+        <canvas id="webcam-skeleton-canvas"></canvas>
+        <div class="pip-overlay" id="pip-action-overlay">
+          <span id="pip-action-tag">READY</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start / Calibration Screen Modal -->
+    <div id="calibration-modal" class="modal-backdrop">
+      <div class="modal-card calibration-card">
+        <div class="modal-header">
+          <div class="brand-badge">FITNESS RUNNER 3D</div>
+          <h1 class="modal-title">REFLEX<span class="accent-orange">RUN</span></h1>
+          <p class="modal-subtitle">Turn your room into an intense first-person reflex obstacle course.</p>
+        </div>
+
+        <div class="calibration-content">
+          <!-- Left: Live Video with Silhouette Target Guide -->
+          <div class="calibration-preview-box">
+            <video id="calib-video" playsinline muted autoplay></video>
+            <canvas id="calib-canvas"></canvas>
+            
+            <!-- Target Silhouette Overlay -->
+            <div class="silhouette-guide" id="silhouette-guide">
+              <div class="guide-head"></div>
+              <div class="guide-torso"></div>
+              <div class="guide-lane-left">LANE L</div>
+              <div class="guide-lane-center">CENTER</div>
+              <div class="guide-lane-right">LANE R</div>
+            </div>
+
+            <!-- Calibration Status Banner -->
+            <div class="calib-status-banner" id="calib-status-text">
+              Stand 5-7 ft back so head & torso fit in frame
+            </div>
+
+            <!-- 3s Countdown Bubble -->
+            <div class="calib-countdown hidden" id="calib-countdown">3</div>
+          </div>
+
+          <!-- Right: Guided Setup & Motion Meters -->
+          <div class="calibration-sidebar">
+            <div class="step-card active" id="step-distance">
+              <div class="step-num">1</div>
+              <div class="step-details">
+                <h3>Frame Alignment</h3>
+                <p>Step back until your body turns <strong class="green-txt">GREEN</strong> inside the target box.</p>
+              </div>
+            </div>
+
+            <div class="step-card" id="step-baseline">
+              <div class="step-num">2</div>
+              <div class="step-details">
+                <h3>Lock Neutral Pose</h3>
+                <p>Stand naturally upright for 3 seconds to lock your baseline height.</p>
+              </div>
+            </div>
+
+            <!-- Live Motion Sensor Diagnostics -->
+            <div class="sensor-meters-box">
+              <div class="meter-row">
+                <span class="meter-name">VERTICAL (Jump / Squat)</span>
+                <div class="meter-track">
+                  <div class="meter-baseline" id="meter-vert-base"></div>
+                  <div class="meter-indicator" id="meter-vert-val"></div>
+                </div>
+              </div>
+              <div class="meter-row">
+                <span class="meter-name">LATERAL (Left / Right Step)</span>
+                <div class="meter-track">
+                  <div class="meter-baseline-center"></div>
+                  <div class="meter-indicator" id="meter-lat-val"></div>
+                </div>
+              </div>
+              <div class="meter-row">
+                <span class="meter-name">PUNCH THRUST</span>
+                <div class="meter-track">
+                  <div class="meter-bar-fill" id="meter-punch-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Calibration Action Buttons -->
+            <div class="calib-actions">
+              <button id="btn-play-now" class="btn btn-primary glow-btn">
+                <span>⚡ START RUNNING NOW</span>
+              </button>
+              <button id="btn-start-calibration" class="btn btn-secondary">
+                <span>🎯 CALIBRATE CAMERA (3s)</span>
+              </button>
+              <button id="btn-open-tutorial" class="btn btn-secondary">
+                <span>🎓 HOW TO PLAY / TUTORIAL</span>
+              </button>
+            </div>
+
+            <!-- Sensitivity Quick-Adjust Accordion -->
+            <details class="sensitivity-accordion" open>
+              <summary>⚙️ Motion Sensitivity Tuning (Adjust how much you jump, duck, step & punch)</summary>
+              <div class="tuning-grid">
+                <label>
+                  <div class="slider-header">
+                    <span>🦘 Jump Height</span>
+                    <strong class="slider-badge" id="val-jump">14%</strong>
+                  </div>
+                  <input type="range" id="slider-jump" min="3" max="80" value="14" />
+                  <small>Lower % = subtle hop • Higher % = high vertical leap (up to 80%)</small>
+                </label>
+                <label>
+                  <div class="slider-header">
+                    <span>🔻 Duck / Squat Depth</span>
+                    <strong class="slider-badge" id="val-squat">16%</strong>
+                  </div>
+                  <input type="range" id="slider-squat" min="4" max="80" value="16" />
+                  <small>Lower % = slight duck • Higher % = deep athletic squat (up to 80%)</small>
+                </label>
+                <label>
+                  <div class="slider-header">
+                    <span>↔️ Side Step Width</span>
+                    <strong class="slider-badge" id="val-step">12%</strong>
+                  </div>
+                  <input type="range" id="slider-step" min="3" max="60" value="12" />
+                  <small>Lower % = slight lean • Higher % = wide room dodge (up to 60%)</small>
+                </label>
+                <label>
+                  <div class="slider-header">
+                    <span>🥊 Punch Reach</span>
+                    <strong class="slider-badge" id="val-punch">18%</strong>
+                  </div>
+                  <input type="range" id="slider-punch" min="5" max="60" value="18" />
+                  <small>Lower % = quick jab • Higher % = full arm strike (up to 60%)</small>
+                </label>
+              </div>
+              <div class="tuning-footer">
+                <label class="toggle-label">
+                  <input type="checkbox" id="toggle-invert-x" checked />
+                  <span>Mirror Camera Steering</span>
+                </label>
+                <label class="toggle-label" title="Locks punches while dodging so side-stepping never triggers a punch">
+                  <input type="checkbox" id="toggle-step-lock" checked />
+                  <span>🛡️ Lock Punch While Side-Stepping</span>
+                </label>
+                <label class="toggle-label" title="Only punches when fingers are closed into a fist">
+                  <input type="checkbox" id="toggle-require-fist" />
+                  <span>✊ Require Clenched Fist</span>
+                </label>
+                <button type="button" id="btn-reset-sensitivity" class="btn-reset-tuning">↺ Reset Defaults</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Menu Modal -->
+    <div id="pause-modal" class="modal-backdrop hidden">
+      <div class="modal-card pause-card">
+        <h2>WORKOUT PAUSED</h2>
+        <p>Catch your breath! Resume when you are ready to continue.</p>
+        <div class="pause-actions">
+          <button id="btn-resume" class="btn btn-primary glow-btn">RESUME RUN</button>
+          <button id="btn-recalibrate" class="btn btn-secondary">RECALIBRATE CAMERA</button>
+          <button id="btn-quit" class="btn btn-danger">FINISH WORKOUT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============== INTERACTIVE TUTORIAL =============== -->
+    <div id="tutorial-modal" class="modal-backdrop hidden">
+      <div class="modal-card tutorial-card">
+        <!-- Progress Bar -->
+        <div class="tutorial-progress-bar">
+          <div class="tutorial-progress-fill" id="tutorial-progress-fill" style="width: 0%"></div>
+        </div>
+
+        <!-- Step Header -->
+        <div class="tutorial-header">
+          <span class="tutorial-step-badge" id="tut-step-badge">STEP 1 / 6</span>
+          <button id="btn-skip-tutorial" class="btn-skip-tut">SKIP TUTORIAL →</button>
+        </div>
+
+        <div class="tutorial-layout">
+          <!-- Live Camera View & Body Tracker Window -->
+          <div class="tutorial-camera-panel">
+            <div class="tut-cam-header">
+              <div class="tut-cam-live">
+                <span class="live-dot"></span>
+                <span class="live-text">CAMERA TRACKER</span>
+              </div>
+              <span class="tut-cam-action-pill" id="tut-cam-action-pill">NEUTRAL / READY</span>
+            </div>
+            <div class="tut-cam-viewport">
+              <video id="tut-video" playsinline muted autoplay></video>
+              <canvas id="tut-skeleton-canvas"></canvas>
+              <div class="tut-lane-indicators">
+                <span class="tut-lane-mark" id="tut-mark-left">LANE L</span>
+                <span class="tut-lane-mark active" id="tut-mark-center">CENTER</span>
+                <span class="tut-lane-mark" id="tut-mark-right">LANE R</span>
+              </div>
+            </div>
+            <!-- Live Motion Level Meters -->
+            <div class="tut-motion-meters">
+              <div class="tut-meter-row">
+                <span class="tut-meter-label">VERTICAL</span>
+                <div class="tut-meter-track">
+                  <div class="tut-zone-tag jump">JUMP</div>
+                  <div class="tut-zone-tag neutral">NEUTRAL</div>
+                  <div class="tut-zone-tag squat">SQUAT</div>
+                  <div class="tut-needle" id="tut-height-pin"></div>
+                </div>
+              </div>
+              <div class="tut-meter-row">
+                <span class="tut-meter-label">LATERAL</span>
+                <div class="tut-meter-track">
+                  <div class="tut-needle-lat" id="tut-lat-pin"></div>
+                </div>
+              </div>
+              <div class="tut-meter-row">
+                <span class="tut-meter-label">PUNCH</span>
+                <div class="tut-meter-track">
+                  <div class="tut-meter-punch-fill" id="tut-punch-fill"></div>
+                  <div class="tut-punch-thresh-mark">STRIKE</div>
+                </div>
+              </div>
+            </div>
+            <div class="tut-cam-controls">
+              <button id="btn-tut-recalibrate" class="btn-tut-recalib" type="button">
+                <span>🎯 RE-CENTER BASELINE</span>
+              </button>
+              <span class="tut-cam-hint" id="tut-cam-status-hint">Stand 5-7 ft back with head & torso visible</span>
+
+              <!-- In-Tutorial Sensitivity Controls -->
+              <details class="tut-thresholds-accordion">
+                <summary>⚙️ Adjust Jump, Duck & Step</summary>
+                <div class="tut-tuning-body">
+                  <div class="tut-slider-row">
+                    <span class="tut-slider-title">🦘 JUMP:</span>
+                    <input type="range" id="tut-slider-jump" min="3" max="80" value="14" />
+                    <span class="tut-slider-num" id="tut-val-jump">14%</span>
+                  </div>
+                  <div class="tut-slider-row">
+                    <span class="tut-slider-title">🔻 DUCK:</span>
+                    <input type="range" id="tut-slider-squat" min="4" max="80" value="16" />
+                    <span class="tut-slider-num" id="tut-val-squat">16%</span>
+                  </div>
+                  <div class="tut-slider-row">
+                    <span class="tut-slider-title">↔️ STEP:</span>
+                    <input type="range" id="tut-slider-step" min="3" max="60" value="12" />
+                    <span class="tut-slider-num" id="tut-val-step">12%</span>
+                  </div>
+                  <div class="tut-slider-row">
+                    <span class="tut-slider-title">🥊 PUNCH:</span>
+                    <input type="range" id="tut-slider-punch" min="5" max="60" value="18" />
+                    <span class="tut-slider-num" id="tut-val-punch">18%</span>
+                  </div>
+                  <div class="tut-tuning-actions">
+                    <label class="tut-toggle-invert" title="Mirror Steering">
+                      <input type="checkbox" id="tut-toggle-invert-x" checked />
+                      <span>Mirror</span>
+                    </label>
+                    <label class="tut-toggle-invert" title="Locks punches while dodging so side-stepping never triggers a punch">
+                      <input type="checkbox" id="tut-toggle-step-lock" checked />
+                      <span>🛡️ Step-Lock</span>
+                    </label>
+                    <label class="tut-toggle-invert" title="Requires fingers closed into a fist">
+                      <input type="checkbox" id="tut-toggle-require-fist" />
+                      <span>✊ Fist Only</span>
+                    </label>
+                    <button type="button" id="btn-tut-reset-sensitivity" class="btn-tut-reset">↺ Reset</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- Step Content Container (swaps per step) -->
+          <div class="tutorial-body" id="tutorial-body">
+          <!-- Step 1: INTRO / HOW IT WORKS -->
+          <div class="tut-step active" id="tut-step-0">
+            <div class="tut-icon-big">🏃‍♂️</div>
+            <h2 class="tut-title">Welcome to <span class="accent-orange">ReflexRun 3D</span></h2>
+            <p class="tut-desc">You'll run through an ancient temple chasm, dodging obstacles and smashing monsters — using your <strong>real body movements</strong> or keyboard!</p>
+            <div class="tut-moves-preview">
+              <div class="tut-move-chip"><span>🦘</span> JUMP over spikes</div>
+              <div class="tut-move-chip"><span>🔻</span> DUCK under blades</div>
+              <div class="tut-move-chip"><span>↔️</span> SIDE-STEP pillars</div>
+              <div class="tut-move-chip"><span>🥊</span> PUNCH monsters</div>
+            </div>
+            <p class="tut-hint">Each move maps to a real exercise. The faster you react, the higher your score and calorie burn!</p>
+          </div>
+
+          <!-- Step 2: JUMP Training -->
+          <div class="tut-step" id="tut-step-1">
+            <div class="tut-icon-big tut-icon-animated">🦘</div>
+            <h2 class="tut-title">Learn to <span class="accent-orange">JUMP</span></h2>
+            <p class="tut-desc">When you see <strong>spiked hurdles</strong> on the floor, leap up to clear them!</p>
+            <div class="tut-how-to">
+              <div class="tut-method">
+                <div class="tut-method-label">WITH YOUR BODY</div>
+                <div class="tut-method-detail">Jump in the air! Your camera tracks your shoulders rising above the baseline.</div>
+              </div>
+              <div class="tut-method-divider">OR</div>
+              <div class="tut-method">
+                <div class="tut-method-label">WITH KEYBOARD</div>
+                <div class="tut-method-detail">Press <kbd>W</kbd> or <kbd>Space</kbd> or <kbd>↑</kbd></div>
+              </div>
+            </div>
+            <div class="tut-practice-zone">
+              <div class="tut-practice-label">TRY IT NOW!</div>
+              <div class="tut-detect-ring" id="tut-detect-jump">
+                <div class="tut-detect-icon">🦘</div>
+                <div class="tut-detect-status" id="tut-status-jump">Waiting for JUMP...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: SQUAT / SLIDE Training -->
+          <div class="tut-step" id="tut-step-2">
+            <div class="tut-icon-big tut-icon-animated">🔻</div>
+            <h2 class="tut-title">Learn to <span class="accent-orange">SQUAT / SLIDE</span></h2>
+            <p class="tut-desc">When you see <strong>swinging blades</strong> overhead, duck down to slide underneath!</p>
+            <div class="tut-how-to">
+              <div class="tut-method">
+                <div class="tut-method-label">WITH YOUR BODY</div>
+                <div class="tut-method-detail">Crouch or squat low! Your camera detects your shoulders dropping below the baseline.</div>
+              </div>
+              <div class="tut-method-divider">OR</div>
+              <div class="tut-method">
+                <div class="tut-method-label">WITH KEYBOARD</div>
+                <div class="tut-method-detail">Press <kbd>S</kbd> or <kbd>↓</kbd></div>
+              </div>
+            </div>
+            <div class="tut-practice-zone">
+              <div class="tut-practice-label">TRY IT NOW!</div>
+              <div class="tut-detect-ring" id="tut-detect-squat">
+                <div class="tut-detect-icon">🔻</div>
+                <div class="tut-detect-status" id="tut-status-squat">Waiting for SQUAT...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: SIDE STEP Training -->
+          <div class="tut-step" id="tut-step-3">
+            <div class="tut-icon-big tut-icon-animated">↔️</div>
+            <h2 class="tut-title">Learn to <span class="accent-orange">SIDE-STEP</span></h2>
+            <p class="tut-desc">When <strong>stone pillars block your lane</strong>, side-step left or right to dodge!</p>
+            <div class="tut-how-to">
+              <div class="tut-method">
+                <div class="tut-method-label">WITH YOUR BODY</div>
+                <div class="tut-method-detail">Step sideways! Your camera tracks your body shifting left or right from center.</div>
+              </div>
+              <div class="tut-method-divider">OR</div>
+              <div class="tut-method">
+                <div class="tut-method-label">WITH KEYBOARD</div>
+                <div class="tut-method-detail">Press <kbd>A</kbd> (left) or <kbd>D</kbd> (right)</div>
+              </div>
+            </div>
+            <div class="tut-practice-zone">
+              <div class="tut-practice-label">TRY IT NOW!</div>
+              <div class="tut-detect-ring" id="tut-detect-step">
+                <div class="tut-detect-icon">↔️</div>
+                <div class="tut-detect-status" id="tut-status-step">Waiting for SIDE-STEP...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: PUNCH Training -->
+          <div class="tut-step" id="tut-step-4">
+            <div class="tut-icon-big tut-icon-animated">🥊</div>
+            <h2 class="tut-title">Learn to <span class="accent-orange">PUNCH</span></h2>
+            <p class="tut-desc">When a <strong>Magma Golem charges at you</strong>, throw a punch to shatter it!</p>
+            <div class="tut-how-to">
+              <div class="tut-method">
+                <div class="tut-method-label">WITH YOUR BODY</div>
+                <div class="tut-method-detail">Make a fist and thrust forward toward the camera! Side-stepping left/right will not trigger accidental punches.</div>
+              </div>
+              <div class="tut-method-divider">OR</div>
+              <div class="tut-method">
+                <div class="tut-method-label">WITH KEYBOARD</div>
+                <div class="tut-method-detail">Press <kbd>J</kbd> (left jab), <kbd>K</kbd> (right cross), or <kbd>Space</kbd></div>
+              </div>
+            </div>
+            <div class="tut-practice-zone">
+              <div class="tut-practice-label">TRY IT NOW!</div>
+              <div class="tut-detect-ring" id="tut-detect-punch">
+                <div class="tut-detect-icon">🥊</div>
+                <div class="tut-detect-status" id="tut-status-punch">Waiting for PUNCH...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 6: YOU'RE READY! -->
+          <div class="tut-step" id="tut-step-5">
+            <div class="tut-icon-big">⚡</div>
+            <h2 class="tut-title">You're <span class="accent-orange">Ready!</span></h2>
+            <p class="tut-desc">You've mastered all 4 moves. Dodge obstacles, crush monsters, rack up combos, and burn calories!</p>
+            <div class="tut-tips-grid">
+              <div class="tut-tip"><strong>❤️ Stamina:</strong> You have 3 lives. Collisions cost 1 life.</div>
+              <div class="tut-tip"><strong>⚡ Combos:</strong> Chain successful dodges for score multipliers (up to x8!).</div>
+              <div class="tut-tip"><strong>🔥 Calories:</strong> Every jump, squat, punch & step is tracked as a real workout rep.</div>
+              <div class="tut-tip"><strong>⏸️ Pause:</strong> Press <kbd>Esc</kbd> anytime to pause and breathe.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <!-- Navigation Buttons -->
+        <div class="tutorial-nav">
+          <button id="btn-tut-prev" class="btn btn-secondary tut-nav-btn" disabled>← BACK</button>
+          <button id="btn-tut-next" class="btn btn-primary glow-btn tut-nav-btn">NEXT →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over / Workout Summary Modal -->
+    <div id="summary-modal" class="modal-backdrop hidden">
+      <div class="modal-card summary-card">
+        <div class="summary-badge" id="summary-grade">RANK S</div>
+        <h2 class="summary-title">WORKOUT COMPLETE!</h2>
+        <p class="summary-subtitle" id="summary-message">Incredible reflex performance! You crushed the obstacle course.</p>
+
+        <!-- Stats Matrix -->
+        <div class="summary-grid">
+          <div class="summary-stat-box">
+            <span class="stat-icon">🔥</span>
+            <span class="stat-value" id="sum-calories">0</span>
+            <span class="stat-label">CALORIES BURNED</span>
+          </div>
+          <div class="summary-stat-box">
+            <span class="stat-icon">🏃</span>
+            <span class="stat-value" id="sum-distance">0m</span>
+            <span class="stat-label">DISTANCE RUN</span>
+          </div>
+          <div class="summary-stat-box">
+            <span class="stat-icon">⚡</span>
+            <span class="stat-value" id="sum-max-combo">x0</span>
+            <span class="stat-label">MAX COMBO</span>
+          </div>
+          <div class="summary-stat-box">
+            <span class="stat-icon">⏱️</span>
+            <span class="stat-value" id="sum-time">00:00</span>
+            <span class="stat-label">TOTAL TIME</span>
+          </div>
+        </div>
+
+        <!-- Exercise Breakdown List -->
+        <div class="summary-breakdown">
+          <div class="breakdown-item">
+            <span>🦘 Jumps:</span>
+            <strong id="sum-jumps">0</strong>
+          </div>
+          <div class="breakdown-item">
+            <span>🔻 Squats / Ducks:</span>
+            <strong id="sum-squats">0</strong>
+          </div>
+          <div class="breakdown-item">
+            <span>🥊 Monster Punches:</span>
+            <strong id="sum-punches">0</strong>
+          </div>
+          <div class="breakdown-item">
+            <span>↔️ Agility Side-Steps:</span>
+            <strong id="sum-steps">0</strong>
+          </div>
+        </div>
+
+        <div class="summary-actions">
+          <button id="btn-restart" class="btn btn-primary glow-btn">RUN AGAIN ⚡</button>
+          <button id="btn-adjust-calib" class="btn btn-secondary">CALIBRATE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Entry Point -->
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
