@@ -8,7 +8,7 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Tasks%20Vision%20v1.0.1-0078D4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Web Audio API](https://img.shields.io/badge/Web%20Audio%20API-Synthesizer-FF8C00?style=for-the-badge&logo=audio&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 
 <br/>
 
@@ -173,7 +173,7 @@ npm run build
 
 ## 📜 License
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Distributed under the **GNU General Public License v3.0 (GPL-3.0)**. See [`LICENSE`](LICENSE) for more information.
 
 <div align="center">
   <sub>Built with ❤️ for fitness enthusiasts, tactical athletes, and gamers.</sub>
